@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>Camera Overlay</title>
+    <meta name="author" content="Yap Yi Sheng">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width">
+
+    <script src="js/vendor/modernizr-2.6.2.min.js"></script>
+    <script src="js/vendor/jquery-1.9.1.min.js"></script>
+    <script src="js/vendor/canvas-events.js"></script>
+
+	<script>
+      	var imageObj = new Image();
+		var imgSrc = 'img/orange.png';
+      	imageObj.src = imgSrc;
+
+		var canvas, rectX, rectY;
+        var draggingRect = false;
+        var draggingRectOffsetX = 0;
+        var draggingRectOffsetY = 0;
+
+		function drawFrame() {
+			var videoElement = $('#videoPlaceholder').get(0);
+			var canvas = $('#canvasVideo').get(0);
+			var context = canvas.getContext('2d');
+
+			context.fillStyle = '#303030';
+			context.fillRect(0, 0, canvas.width, canvas.height);
+		    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+        	context.drawImage(imageObj, rectX, rectY, 
+        		imageObj.width, imageObj.height);
+
+			var imageData = context.getImageData(0,0,canvas.width,canvas.height).data;
+
+		    setTimeout(drawFrame, 1);
+		}
+
+		// Put event listeners into place
+		$(function () {
+			$('#divVideo').hide();
+
+            var events = new Events("canvasVideo");
+
+			canvas = $("#canvasVideo").get(0);
+
+        	rectX = canvas.width / 2 - imageObj.width / 2;
+        	rectY = canvas.height / 2 - imageObj.height / 2;
+        	draggingRect = false;
+        	draggingRectOffsetX = 0;
+        	draggingRectOffsetY = 0;
+
+			// Grab elements, create settings, etc.
+			var canvas = $("#canvasVideo").get(0), 
+				context = canvas.getContext("2d"),
+				video = document.getElementById("videoPlaceholder"),
+				videoObj = { "video": true },
+				errBack = function(error) {
+					console.log("Video capture error: ", error.code); 
+				};
+
+
+
+
+
+            events.setStage(function(){
+                var mousePos = this.getMousePos();
+                
+                if (draggingRect) {
+                    rectX = mousePos.x - draggingRectOffsetX;
+                    rectY = mousePos.y - draggingRectOffsetY;
+                }
+                
+                this.beginRegion();
+                // draw rectangular region for image
+                context.beginPath();
+                context.rect(rectX, rectY, imageObj.width, imageObj.height);
+                context.closePath();
+                
+                this.addRegionEventListener("mousedown", function(){
+                    draggingRect = true;
+                    var mousePos = events.getMousePos();
+                    
+                    draggingRectOffsetX = mousePos.x - rectX;
+                    draggingRectOffsetY = mousePos.y - rectY;
+                });
+                this.addRegionEventListener("mouseup", function(){
+                    draggingRect = false;
+                });
+                this.addRegionEventListener("mouseover", function(){
+                    document.body.style.cursor = "pointer";
+                });
+                this.addRegionEventListener("mouseout", function(){
+                    document.body.style.cursor = "default";
+                });
+                
+                this.closeRegion();
+            });
+
+
+
+
+
+
+
+			// Put video listeners into place
+			if(navigator.getUserMedia) { // Standard
+				navigator.getUserMedia(videoObj, function(stream) {
+					video.src = stream;
+					video.play();					
+					drawFrame();
+				}, errBack);
+			} else if(navigator.webkitGetUserMedia) { // WebKit-prefixed
+				navigator.webkitGetUserMedia(videoObj, function(stream){
+					video.src = window.webkitURL.createObjectURL(stream);
+					video.play();
+					drawFrame();
+				}, errBack);
+			} else {
+				alert("Camera access not supported.");
+			}
+
+			$('.color-picker').bind('click', function(e){
+				imgSrc = $(this).data('filename');
+		      	imageObj.src = imgSrc;
+
+				e.preventDefault();
+			});
+
+
+		});
+
+      	/*
+		function hasGetUserMedia() {
+		  // Note: Opera is unprefixed.
+		  	return !!(navigator.getUserMedia || navigator.webkitGetUserMedia ||
+		            navigator.mozGetUserMedia || navigator.msGetUserMedia);
+		}
+
+		$(function () {
+			$('#divVideo').hide();
+
+			if (hasGetUserMedia()) {
+
+				window.URL = window.URL || window.webkitURL;
+				navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
+			                          navigator.mozGetUserMedia || navigator.msGetUserMedia;
+
+			  	navigator.getUserMedia({ video: true }, function(stream) {
+			    	
+					var videoElement = $('#videoPlaceholder').get(0);
+					var canvas = $('#canvasVideo').get(0);
+
+					var context = canvas.getContext('2d');
+
+			    	videoElement.src = window.URL.createObjectURL(stream);
+
+				    drawFrame();
+			  	}, function(error){
+					alert("Failed To get user media:" + error.code)
+			  	});
+
+			} else {
+			  	alert('getUserMedia() is not supported in your browser');
+			}
+
+		});
+		*/
+	</script> 
+  </head>
+  <body>
+  	<div id="divVideo">
+  		<video id="videoPlaceholder" autoplay></video>
+  	</div>
+  	<div>
+		<canvas id="canvasVideo" width="640" height="480"></canvas> 
+ 	</div>
+ 	<div>
+ 		<a href="#" data-filename="img/orange.png" class="color-picker">Orange</a><br/>
+ 		<a href="#" data-filename="img/black.png" class="color-picker">Black</a><br/>
+ 	</div>
+	<style> 
+	/*
+	#canvasVideo {
+		position: absolute;
+		top: 5%;
+		left: 5%;
+	}
+	*/
+	</style>
+
+  </body>
+
+</html>
