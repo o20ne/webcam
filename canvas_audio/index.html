@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>WebCam Audio</title>
+    <meta name="author" content="Yap Yi Sheng">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width">
+
+    <script src="js/vendor/modernizr-2.6.2.min.js"></script>
+    <script src="js/vendor/jquery-1.9.1.min.js"></script>
+    <script src="js/vendor/riffwave.js"></script>
+	<script> 
+		Array.prototype.repeat= function(what, L){
+		 while(L) this[--L]= what;
+		 return this;
+		}
+
+		function hasGetUserMedia() {
+		  // Note: Opera is unprefixed.
+		  	return !!(navigator.getUserMedia || navigator.webkitGetUserMedia ||
+		            navigator.mozGetUserMedia || navigator.msGetUserMedia);
+		}
+
+
+function simHertz(hz, seconds, sampleRate) {
+    var data = [];
+
+    for (var i = 0; i < sampleRate * seconds; i ++) {
+        data[i] = Math.round(128 + 127 * Math.sin(i * 2 * Math.PI * hz / sampleRate));
+    }
+
+    return data;
+}
+
+var audio = simHertz(1000);
+
+		function dataToAudio(scanData) {
+			var baseHertx = 75;
+
+			$.each(scanData, function(pointIndex, pointVal) {
+				var audioElement;
+				//console.log(pointIndex);
+				switch(parseInt(pointIndex))
+				{
+					case 0:
+						audioElement = $('#bass1');
+						break;
+					case 1:
+						audioElement = $('#bass2');
+						break;
+					case 2:
+						audioElement = $('#drums1');
+						break;
+					case 3:
+						audioElement = $('#drums2');
+						break;
+					case 4:
+						audioElement = $('#melody1');
+						break;
+					case 5:
+						audioElement = $('#melody2');
+						break;
+				}
+				audioElement = audioElement.get(0);
+				audioElement = $('#clap1').get(0);
+				//console.log(audioElement);
+
+				//console.log(pointVal);
+
+				// check if is black - 0,0,0 is black
+				if(pointVal[0] < 50
+					&& pointVal[1] < 50
+					&& pointVal[2] < 50)
+				{
+					if(audioElement.ended)
+					{
+						//audioElement.currentTime=0;
+					}
+					if(audioElement.currentTime==0)
+					{
+						audioElement.play();
+					}
+				}
+				else
+				{
+					if(audioElement.currentTime>0)
+					{
+						audioElement.pause();
+						audioElement.currentTime=0;
+					}
+				}
+
+				/*
+				var averageRGB = Math.floor((pointVal[0] + pointVal[1] + pointVal[2]) / 3);
+
+				var wave = new RIFFWAVE(); // create the wave file
+				wave.header.sampleRate = 44100;
+				var audioData = simHertz(averageRGB*baseHertx, 1, wave.header.sampleRate);
+				wave.header.numChannels = 1;
+				wave.Make(audioData); // make the wave file
+				var audio = new Audio(wave.dataURI); // create the HTML5 audio element
+				audio.play(); // some noise
+				*/
+		    });
+
+			/*
+		    // NOISE
+			var noise = []; for (var i=0; i<10000; i++) noise[i] = Math.round(128*Math.random());
+			//console.log(noise);
+
+			// SINE WAVE
+			var sine = []; for (var i=0; i<10000; i++) sine[i] = 128+Math.round(127*Math.sin(i/5));
+			//console.log(sine);
+
+			// EFFECT
+			var effect = []; for (var i=0; i<1000; i++) effect[i] = 64+Math.round(32*(Math.cos(i*i/2000)+Math.sin(i*i/4000)));
+			//console.log(effect);
+			
+			var wave3 = new RIFFWAVE();
+			wave3.header.sampleRate = 22000;
+			wave3.Make(effect);
+			var audio3 = new Audio(wave3.dataURI);
+			//audio3.play();
+			*/
+		}
+
+
+
+		function drawFrame() {
+			var videoElement = $('#videoPlaceholder').get(0);
+			var canvas = $('#canvasVideo').get(0);
+			var context = canvas.getContext('2d');
+
+			context.fillStyle = '#303030';
+			context.fillRect(0, 0, canvas.width, canvas.height);
+		    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+			var imageData = context.getImageData(0,0,canvas.width,canvas.height).data;
+
+			var scanRecord = new Array();
+			var scanXAxis = Math.floor(canvas.width / 2);
+			var scanYAxisPoints = 3; // 2 Extra points for end to end
+
+	        for(var yPoint = 1; yPoint < (scanYAxisPoints-1); yPoint++) {
+
+
+
+				var scanYAxis = Math.floor(canvas.height * (yPoint/scanYAxisPoints));
+
+		      	context.beginPath();
+		      	context.moveTo(scanXAxis - 10, scanYAxis);
+		      	context.lineTo(scanXAxis + 10, scanYAxis);
+      			context.strokeStyle = '#ff0000';
+		      	context.stroke();
+
+		      	context.beginPath();
+		      	context.moveTo(scanXAxis, scanYAxis - 10);
+		      	context.lineTo(scanXAxis, scanYAxis + 10);
+      			context.strokeStyle = '#ff0000';
+		      	context.stroke();
+
+
+	          	var dataLocation = ((canvas.width * scanYAxis) + scanXAxis) * 4;
+
+	            var red = imageData[dataLocation];
+	            var green = imageData[dataLocation + 1];
+	            var blue = imageData[dataLocation + 2];
+	            var alpha = imageData[dataLocation + 3];
+
+
+	            scanRecord[yPoint-1] = [red, green, blue/*, alpha*/];
+	        }
+
+	        dataToAudio(scanRecord);
+
+		    setTimeout(drawFrame, 1);
+		}
+
+		$(function () {
+			$('#divVideo').hide();
+
+			if (hasGetUserMedia()) {
+
+				window.URL = window.URL || window.webkitURL;
+				navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
+			                          navigator.mozGetUserMedia || navigator.msGetUserMedia;
+
+			  	navigator.getUserMedia({audio: true, video: true}, function(stream) {
+			    	
+					var videoElement = $('#videoPlaceholder').get(0);
+					var canvas = $('#canvasVideo').get(0);
+
+					var context = canvas.getContext('2d');
+
+			    	videoElement.src = window.URL.createObjectURL(stream);
+
+				    drawFrame();
+			  	}, function(error){
+					alert("Failed To get user media:" + error.code)
+			  	});
+
+			} else {
+			  	alert('getUserMedia() is not supported in your browser');
+			}
+
+		});
+	/*
+	  document.addEventListener('DOMContentLoaded', function(){
+		var v = document.getElementById('v');
+		var canvas = document.getElementById('c');
+		var context = canvas.getContext('2d');
+		var back = document.createElement('canvas');
+		var backcontext = back.getContext('2d');
+	 
+		var cw,ch;
+	 
+		v.addEventListener('play', function(){
+			cw = v.clientWidth;
+			ch = v.clientHeight;
+			canvas.width = cw;
+			canvas.height = ch;
+			back.width = cw;
+			back.height = ch;
+			draw(v,context,backcontext,cw,ch);
+		},false);
+	 
+	  },false);
+	 
+	  function draw(v,c,bc,w,h) {
+		if(v.paused || v.ended)	return false;
+		// First, draw it into the backing canvas
+		bc.drawImage(v,0,0,w,h);
+		// Grab the pixel data from the backing canvas
+		var idata = bc.getImageData(0,0,w,h);
+		var data = idata.data;
+		// Loop through the pixels, turning them grayscale
+		for(var i = 0; i < data.length; i+=4) {
+			var r = data[i];
+			var g = data[i+1];
+			var b = data[i+2];
+			var brightness = (3*r+4*g+b)>>>3;
+			data[i] = brightness;
+			data[i+1] = brightness;
+			data[i+2] = brightness;
+		}
+		idata.data = data;
+		// Draw the pixels onto the visible canvas
+		c.putImageData(idata,0,0);
+		// Start over!
+		setTimeout(draw,20,v,c,bc,w,h);
+	  }*/
+	</script> 
+  </head>
+  <body>
+  	<div id="divVideo">
+  		<video id="videoPlaceholder" autoplay></video>
+
+		<audio id="clap1" preload>
+	  		<source src="audio/808-clap.wav" type="audio/wav">
+		</audio>
+
+		<audio id="bass1" preload>
+	  		<source src="audio/bass1.mp3" type="audio/mpeg">
+		</audio>
+		<audio id="bass2" preload>
+	  		<source src="audio/bass2.mp3" type="audio/mpeg">
+		</audio>
+		<audio id="drums1" preload>
+	  		<source src="audio/drums1.mp3" type="audio/mpeg">
+		</audio>
+		<audio id="drums2" preload>
+	  		<source src="audio/drums2.mp3" type="audio/mpeg">
+		</audio>
+		<audio id="melody1" preload>
+	  		<source src="audio/melody1.mp3" type="audio/mpeg">
+		</audio>
+		<audio id="melody2" preload>
+	  		<source src="audio/melody2.mp3" type="audio/mpeg">
+		</audio>
+  	</div>
+	<canvas id="canvasVideo" width="640" height="480"></canvas> 
+	 
+
+	<style> 
+	#canvasVideo {
+		position: absolute;
+		top: 5%;
+		left: 5%;
+	}
+	</style>
+
+  </body>
+
+</html>
